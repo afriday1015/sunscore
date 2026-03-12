@@ -13,7 +13,7 @@ export interface LocationAdapter {
   watchPosition(callback: (result: LocationResult) => void): () => void;
 }
 
-export type HeadingState = 'live' | 'mock' | 'off';
+export type HeadingState = 'live' | 'mock' | 'off' | 'permission-needed';
 
 export interface HeadingAdapter {
   watchHeading(callback: (degrees: number) => void): () => void;

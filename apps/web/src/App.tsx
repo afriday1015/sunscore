@@ -2,7 +2,7 @@
  * Main App component for SunScore web
  */
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   TopBar,
   MonthSlider,
@@ -24,10 +24,12 @@ import {
   useCurrentTime
 } from './hooks';
 
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 export function App(): React.ReactElement {
   const currentTime = useCurrentTime();
   const { location, error: locationError, loading: locationLoading, retry } = useLocation();
-  const { heading, headingState, setMockHeading } = useHeading();
+  const { heading, headingState, setMockHeading, requestPermission } = useHeading();
 
   // Initialize selected date to current time
   const [selectedDate, setSelectedDate] = useState(() => snapToTenMinutes(new Date()));
@@ -136,12 +138,21 @@ export function App(): React.ReactElement {
         <PeakTimeDisplay peakTime={sunCalcs.peakTime.time} />
       </View>
 
-      {/* Mock Heading Control (Debug) */}
-      <MockHeadingControl
-        value={heading}
-        onChange={setMockHeading}
-        visible={headingState === 'mock'}
-      />
+      {/* Orientation permission button (mobile only) */}
+      {isMobile && headingState === 'permission-needed' && (
+        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <Text style={styles.permissionButtonText}>나침반 방향 허용</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Mock Heading Control (desktop only) */}
+      {!isMobile && (
+        <MockHeadingControl
+          value={heading}
+          onChange={setMockHeading}
+          visible={headingState === 'mock'}
+        />
+      )}
     </View>
   );
 }
@@ -171,5 +182,17 @@ const styles = StyleSheet.create({
   timeControls: {
     borderTopWidth: 1,
     borderTopColor: colors.border
+  },
+  permissionButton: {
+    margin: 12,
+    padding: 14,
+    backgroundColor: colors.sunAccent,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
   }
 });

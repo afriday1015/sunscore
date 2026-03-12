@@ -73,13 +73,11 @@ export class WebHeadingAdapter implements HeadingAdapter {
   }
 
   async requestPermission(): Promise<boolean> {
-    // Check if DeviceOrientationEvent is supported
     if (typeof DeviceOrientationEvent === 'undefined') {
       this.state = 'mock';
       return false;
     }
 
-    // iOS 13+ requires permission request
     const DeviceOrientationEventTyped = DeviceOrientationEvent as unknown as {
       requestPermission?: () => Promise<string>;
     };
@@ -88,12 +86,24 @@ export class WebHeadingAdapter implements HeadingAdapter {
       try {
         const permission = await DeviceOrientationEventTyped.requestPermission();
         if (permission === 'granted') {
+          // Transition out of 'permission-needed' while waiting for first event
+          this.state = 'off';
+          if (this.currentCallback) {
+            this.startOrientationWatch(this.currentCallback);
+          }
           return true;
         }
+        // Permission denied: fall back to mock
         this.state = 'mock';
+        if (this.currentCallback) {
+          this.currentCallback(this.mockHeading);
+        }
         return false;
       } catch {
         this.state = 'mock';
+        if (this.currentCallback) {
+          this.currentCallback(this.mockHeading);
+        }
         return false;
       }
     }
@@ -105,12 +115,28 @@ export class WebHeadingAdapter implements HeadingAdapter {
   watchHeading(callback: (degrees: number) => void): () => void {
     this.currentCallback = callback;
 
-    // If we don't have live heading, use mock
-    if (this.state === 'mock' || this.state === 'off') {
-      this.startMockFallback(callback);
+    if (this.needsIOSPermission()) {
+      // iOS 13+: wait for explicit user gesture to request permission
+      this.state = 'permission-needed';
+    } else {
+      // Desktop or Android: try device orientation with mock fallback
+      this.startOrientationWatch(callback);
     }
 
-    // Try to use device orientation
+    return () => {
+      this.cleanup();
+    };
+  }
+
+  private needsIOSPermission(): boolean {
+    if (typeof DeviceOrientationEvent === 'undefined') return false;
+    const typed = DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<string>;
+    };
+    return typeof typed.requestPermission === 'function';
+  }
+
+  private startOrientationWatch(callback: (degrees: number) => void): void {
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
       this.eventHandler = (event: DeviceOrientationEvent) => {
         this.handleOrientationEvent(event, callback);
@@ -118,21 +144,19 @@ export class WebHeadingAdapter implements HeadingAdapter {
 
       window.addEventListener('deviceorientation', this.eventHandler);
 
-      // Set timeout to fallback to mock if no valid readings
-      setTimeout(() => {
-        if (this.validReadingCount < 3 && this.state !== 'live') {
-          this.state = 'mock';
-          callback(this.mockHeading);
-        }
-      }, 5000);
+      // Only set timeout fallback for non-iOS (iOS already handled via explicit permission)
+      if (!this.needsIOSPermission()) {
+        setTimeout(() => {
+          if (this.validReadingCount < 3 && this.state !== 'live') {
+            this.state = 'mock';
+            callback(this.mockHeading);
+          }
+        }, 5000);
+      }
     } else {
       this.state = 'mock';
       callback(this.mockHeading);
     }
-
-    return () => {
-      this.cleanup();
-    };
   }
 
   private handleOrientationEvent(
@@ -175,11 +199,6 @@ export class WebHeadingAdapter implements HeadingAdapter {
 
     this.lastCallbackTime = now;
     callback(stabilizedHeading);
-  }
-
-  private startMockFallback(callback: (degrees: number) => void): void {
-    this.state = 'mock';
-    callback(this.mockHeading);
   }
 
   private cleanup(): void {

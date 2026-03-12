@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import path from 'path';
 
 // Get absolute path to react-native-web
 const reactNativeWeb = path.resolve(__dirname, '../../node_modules/react-native-web');
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), basicSsl()],
   resolve: {
     alias: [
       { find: 'react-native', replacement: reactNativeWeb },
@@ -28,5 +29,6 @@ export default defineConfig({
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-  }
+  },
+  server: { host: '0.0.0.0' }
 });

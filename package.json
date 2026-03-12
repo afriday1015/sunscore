@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/web",
+    "dev": "npm run dev -w apps/web --host 0.0.0.0",
     "build": "npm run build -w apps/web",
     "native": "npm run start -w apps/native",
     "typecheck": "tsc --noEmit"

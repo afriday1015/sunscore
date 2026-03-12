@@ -25,6 +25,9 @@ export function useHeading(): UseHeadingResult {
       setHeadingState(adapter.getHeadingState());
     });
 
+    // Sync initial adapter state (e.g., 'permission-needed' on iOS)
+    setHeadingState(adapter.getHeadingState());
+
     return () => {
       unwatch();
     };
