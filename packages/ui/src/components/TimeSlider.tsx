@@ -1,6 +1,6 @@
 /**
  * Time slider component
- * Horizontal scrollable timeline with quick buttons
+ * Horizontal scrollable timeline with center indicator for time selection
  */
 import React, { useRef, useEffect } from 'react';
 import {
@@ -9,7 +9,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import { formatTime } from '@sunscore/domain';
 import { colors, typography, spacing, layout } from '../theme';
@@ -41,20 +43,54 @@ export function TimeSlider({
     : null;
 
   useEffect(() => {
-    // Scroll to current value
-    const screenWidth = Dimensions.get('window').width;
-    const offset = currentSlot * SLOT_WIDTH - screenWidth / 2 + SLOT_WIDTH / 2;
+    // Scroll so current value is under the center indicator
+    // With paddingHorizontal = screenWidth/2, slot n is centered at offsetX = n * SLOT_WIDTH
+    const offset = currentSlot * SLOT_WIDTH;
     scrollRef.current?.scrollTo({ x: Math.max(0, offset), animated: false });
   }, []);
 
-  const handleSlotPress = (slot: number) => {
-    const totalMinutes = slot * 10;
+  /**
+   * Scroll the timeline so the given hour:minute appears under the center indicator.
+   */
+  const scrollToTime = (hours: number, minutes: number = 0) => {
+    const slot = (hours * 60 + minutes) / 10;
+    const targetOffset = slot * SLOT_WIDTH;
+    scrollRef.current?.scrollTo({ x: Math.max(0, targetOffset), animated: true });
+  };
+
+  /**
+   * Continuous scroll handler — updates selected time to the slot under the center indicator.
+   * No debounce: instant feedback during scroll.
+   */
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+
+    // With paddingHorizontal = screenWidth/2, offsetX maps directly to slot index:
+    // slot n is centered when offsetX = n * SLOT_WIDTH
+    const slot = Math.floor(offsetX / SLOT_WIDTH);
+    const clampedSlot = Math.max(0, Math.min(TOTAL_SLOTS - 1, slot));
+
+    const totalMinutes = clampedSlot * 10;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
+
     const newTime = new Date(value);
     newTime.setHours(hours);
     newTime.setMinutes(minutes);
     onChange(newTime);
+  };
+
+  /**
+   * Snap to the nearest 10-minute slot after momentum scroll ends.
+   */
+  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+
+    const slot = Math.round(offsetX / SLOT_WIDTH);
+    const clampedSlot = Math.max(0, Math.min(TOTAL_SLOTS - 1, slot));
+
+    const targetOffset = clampedSlot * SLOT_WIDTH;
+    scrollRef.current?.scrollTo({ x: Math.max(0, targetOffset), animated: true });
   };
 
   const handleQuickPress = (hour: number) => {
@@ -62,6 +98,7 @@ export function TimeSlider({
     newTime.setHours(hour);
     newTime.setMinutes(0);
     onChange(newTime);
+    scrollToTime(hour, 0);
   };
 
   const handleNowPress = () => {
@@ -72,12 +109,7 @@ export function TimeSlider({
     newTime.setSeconds(0);
     newTime.setMilliseconds(0);
     onChange(newTime);
-
-    // Scroll to current time
-    const slot = (newTime.getHours() * 60 + newTime.getMinutes()) / 10;
-    const screenWidth = Dimensions.get('window').width;
-    const offset = slot * SLOT_WIDTH - screenWidth / 2 + SLOT_WIDTH / 2;
-    scrollRef.current?.scrollTo({ x: Math.max(0, offset), animated: true });
+    scrollToTime(newTime.getHours(), newTime.getMinutes());
   };
 
   return (
@@ -102,19 +134,23 @@ export function TimeSlider({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.timelineContent}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          snapToInterval={SLOT_WIDTH}
+          decelerationRate="fast"
         >
           {Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
             const isHour = slot % SLOTS_PER_HOUR === 0;
             const hour = Math.floor(slot / SLOTS_PER_HOUR);
-            const isSelected = slot === Math.floor(currentSlot);
             const isCurrentTime = slot === Math.floor(currentTimeSlot);
             const isPeakTime = peakTimeSlot !== null && slot === Math.floor(peakTimeSlot);
 
             return (
-              <TouchableOpacity
+              // No tap-to-select: selection is driven by scroll position
+              <View
                 key={slot}
-                style={[styles.slot, isSelected && styles.slotSelected]}
-                onPress={() => handleSlotPress(slot)}
+                style={styles.slot}
               >
                 <View
                   style={[
@@ -129,10 +165,22 @@ export function TimeSlider({
                 )}
                 {isCurrentTime && <View style={styles.currentTimeMarker} />}
                 {isPeakTime && <View style={styles.peakTimeMarker} />}
-              </TouchableOpacity>
+              </View>
             );
           })}
         </ScrollView>
+
+        {/* Fixed center indicator — the selected time is always the slot under this */}
+        <View
+          style={styles.centerIndicatorContainer}
+          accessible={true}
+          accessibilityLabel="Selected time indicator"
+          accessibilityHint="Scroll the timeline to change the selected time"
+          pointerEvents="none"
+        >
+          <View style={styles.centerTriangle} />
+          <View style={styles.centerLine} />
+        </View>
 
         {/* Now button */}
         <TouchableOpacity style={styles.nowButton} onPress={handleNowPress}>
@@ -180,9 +228,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: spacing.sm
   },
-  slotSelected: {
-    backgroundColor: 'rgba(244, 185, 90, 0.2)'
-  },
   tick: {
     width: 1,
     backgroundColor: colors.border
@@ -198,21 +243,52 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2
   },
+  // Current system time marker — distinct orange, scrolls with timeline
   currentTimeMarker: {
     position: 'absolute',
     top: 0,
-    width: 2,
+    width: 1,
     height: 32,
-    backgroundColor: colors.sunAccent
+    backgroundColor: '#FF8C42',
+    zIndex: 5
   },
+  // Peak time marker — amber diamond, scrolls with timeline
   peakTimeMarker: {
     position: 'absolute',
     top: 4,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.sunAccent,
-    transform: [{ rotate: '45deg' }]
+    backgroundColor: '#F4B95A',
+    transform: [{ rotate: '45deg' }],
+    zIndex: 5
+  },
+  // Fixed center indicator — shows which time is selected, does not scroll
+  centerIndicatorContainer: {
+    position: 'absolute',
+    left: '50%' as unknown as number,
+    marginLeft: -1, // half of line width to truly center
+    top: 0,
+    height: '100%' as unknown as number,
+    zIndex: 10,
+    alignItems: 'center'
+  },
+  centerTriangle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#E74C3C',
+    alignSelf: 'center',
+    marginBottom: 2
+  },
+  centerLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#E74C3C'
   },
   nowButton: {
     width: layout.minTouchTarget,

@@ -1,12 +1,11 @@
 /**
  * Radar compass component
- * Shows sun position and daily trajectory
+ * Shows sun direction on outer edge and daily trajectory
  */
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText, Line, G } from 'react-native-svg';
 import {
-  projectToRadar,
   generateTrajectoryPath,
   type TrajectoryPoint,
   type RadarConfig
@@ -22,6 +21,37 @@ interface RadarProps {
 }
 
 const CARDINAL_DIRECTIONS = ['N', 'E', 'S', 'W'];
+
+/**
+ * Calculate sun marker position on the outer edge of the radar circle.
+ * Direction is encoded as position on edge; altitude is encoded as size/opacity.
+ */
+function calculateSunPositionOnEdge(
+  relativeBearingDeg: number,
+  config: RadarConfig
+): { x: number; y: number } {
+  const theta = ((relativeBearingDeg - 90) * Math.PI) / 180;
+  const radius = config.maxRadius; // Always on the outer edge
+
+  return {
+    x: config.centerX + radius * Math.cos(theta),
+    y: config.centerY + radius * Math.sin(theta)
+  };
+}
+
+/**
+ * Derive sun marker visual properties from altitude.
+ * Higher altitude → larger and more opaque marker.
+ */
+function getSunMarkerStyle(altitude: number): { radius: number; opacity: number } {
+  if (altitude < 10) {
+    return { radius: 8, opacity: 0.5 };
+  } else if (altitude < 30) {
+    return { radius: 10, opacity: 0.75 };
+  } else {
+    return { radius: 12, opacity: 1.0 };
+  }
+}
 
 export function Radar({
   sunBearing,
@@ -41,11 +71,14 @@ export function Radar({
     maxRadius
   };
 
-  // Calculate sun position relative to device heading
+  // Calculate sun position on the outer edge based on direction relative to device heading
   const relativeBearing = ((sunBearing - deviceHeading) % 360 + 360) % 360;
   const sunPos = sunAltitude > 0
-    ? projectToRadar(relativeBearing, sunAltitude, config)
+    ? calculateSunPositionOnEdge(relativeBearing, config)
     : null;
+
+  // Derive size and opacity from altitude for secondary visual cue
+  const sunStyle = getSunMarkerStyle(sunAltitude);
 
   // Generate trajectory path
   const trajectoryPath = generateTrajectoryPath(
@@ -149,25 +182,46 @@ export function Radar({
           );
         })}
 
-        {/* Trajectory curve */}
+        {/* Trajectory curve — subtle background context only */}
         {trajectoryPath && (
           <Path
             d={trajectoryPath}
             stroke={colors.sunAccent}
             strokeWidth={1}
             fill="none"
-            opacity={0.2}
+            opacity={0.15}
           />
         )}
 
-        {/* Sun marker */}
+        {/* Sun marker — on outer edge, size/opacity reflect altitude */}
         {sunPos && (
           <G>
+            {/* Sun rays */}
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
+              const theta = (angle * Math.PI) / 180;
+              const innerR = sunStyle.radius + 2;
+              const outerR = sunStyle.radius + 6;
+              return (
+                <Line
+                  key={angle}
+                  x1={sunPos.x + innerR * Math.cos(theta)}
+                  y1={sunPos.y + innerR * Math.sin(theta)}
+                  x2={sunPos.x + outerR * Math.cos(theta)}
+                  y2={sunPos.y + outerR * Math.sin(theta)}
+                  stroke={colors.sunAccent}
+                  strokeWidth={1}
+                  opacity={sunStyle.opacity * 0.6}
+                />
+              );
+            })}
+
+            {/* Main sun circle */}
             <Circle
               cx={sunPos.x}
               cy={sunPos.y}
-              r={12}
+              r={sunStyle.radius}
               fill={colors.sunAccent}
+              opacity={sunStyle.opacity}
             />
           </G>
         )}
