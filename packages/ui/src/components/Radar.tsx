@@ -164,6 +164,17 @@ export function Radar({
           />
         ))}
 
+        {/* User-facing reference line */}
+        <Line
+          x1={center}
+          y1={center}
+          x2={center}
+          y2={center - maxRadius}
+          stroke="#E53935"
+          strokeWidth={1.5}
+          opacity={0.4}
+        />
+
         {/* Cardinal directions */}
         {CARDINAL_DIRECTIONS.map((dir, i) => {
           const pos = getCardinalPosition(i);

@@ -9,6 +9,9 @@ A React Native + react-native-web application that shows the relative direct sun
 - Daily sun trajectory visualization on a radar compass
 - Peak sunlight time calculation for your current heading
 - Month and time controls for exploring different scenarios
+- User-facing reference line on radar for directional clarity
+- Direction interpretation sentence (Korean) showing facing direction and sun position
+- Reverse geocoding location label with Korean address display
 
 ## Project Structure
 
@@ -86,10 +89,27 @@ Platform-specific implementations:
 
 Shared React Native components:
 
-- Radar compass with sun trajectory
+- Radar compass with sun trajectory and user-facing reference line
+- Direction interpretation sentence component
+- Location label with reverse geocoding support
 - Time slider with quick buttons
 - Month slider
 - SunScore bar
+
+### Direction Interpretation
+
+Provides a one-line Korean sentence describing:
+- Which absolute direction the user is facing (8 directions)
+- Where the sun is relative to the user (8 positions)
+
+Uses `directionLabels` utility for deterministic 8-segment mapping.
+
+### Location Label
+
+Displays the user's current location as a Korean address below the interpretation sentence:
+- Success: "{시/도} {시/군/구} {동/읍/면}" (e.g., "서울특별시 중구 명동")
+- Geocoding failure: "현재 위치 기준"
+- No location: "위치 확인 불가"
 
 ## SunScore Formula
 
@@ -123,6 +143,9 @@ MIT
 - 레이더 나침반에 일일 태양 궤적 시각화
 - 현재 향하고 있는 방향의 피크 일조 시간 계산
 - 다양한 시나리오 탐색을 위한 월/시간 컨트롤
+- 레이더 사용자 방향 참조선 (빨간색 가이드라인)
+- 방향 해설 문구: 사용자가 바라보는 방향과 태양 상대 위치를 한국어로 표시
+- 역지오코딩 기반 위치 라벨: 현재 위치를 한국어 주소로 표시
 
 ## 프로젝트 구조
 
@@ -200,10 +223,27 @@ React 의존성 없이 모든 태양 관련 계산을 포함합니다:
 
 공유 React Native 컴포넌트:
 
-- 태양 궤적이 포함된 레이더 나침반
+- 태양 궤적과 사용자 방향 참조선이 포함된 레이더 나침반
+- 방향 해설 문구 컴포넌트
+- 역지오코딩 위치 라벨 컴포넌트
 - 빠른 버튼이 있는 시간 슬라이더
 - 월 슬라이더
 - SunScore 바
+
+### 방향 해설
+
+사용자에게 한 줄의 한국어 문장으로 다음을 알려줍니다:
+- 현재 바라보고 있는 절대 방향 (8방위: 북쪽, 북동쪽, 동쪽 등)
+- 태양의 상대적 위치 (8위치: 정면, 오른쪽 앞, 오른쪽 등)
+
+`directionLabels` 유틸리티를 사용한 결정적 8분할 매핑.
+
+### 위치 라벨
+
+해설 문구 아래에 현재 위치를 한국어 주소로 표시합니다:
+- 성공: "{시/도} {시/군/구} {동/읍/면}" (예: "서울특별시 중구 명동")
+- 지오코딩 실패: "현재 위치 기준"
+- 위치 없음: "위치 확인 불가"
 
 ## SunScore 공식
 
