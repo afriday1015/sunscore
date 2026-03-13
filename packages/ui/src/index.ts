@@ -15,3 +15,10 @@ export { TimeSlider } from './components/TimeSlider';
 export { Radar } from './components/Radar';
 export { ErrorScreen } from './components/ErrorScreen';
 export { MockHeadingControl } from './components/MockHeadingControl';
+export { DirectionInterpretation } from './components/DirectionInterpretation';
+export { LocationLabel } from './components/LocationLabel';
+export type { LocationDisplayState } from './components/LocationLabel';
+
+// Utils
+export { formatLocationAddress } from './utils/formatLocationAddress';
+export type { RawAddressComponents } from './utils/formatLocationAddress';

@@ -1,7 +1,7 @@
 /**
  * Main App component for SunScore web
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   TopBar,
@@ -12,10 +12,15 @@ import {
   PeakTimeDisplay,
   ErrorScreen,
   MockHeadingControl,
+  DirectionInterpretation,
+  LocationLabel,
+  formatLocationAddress,
   colors,
   spacing,
   layout
 } from '@sunscore/ui';
+import type { LocationDisplayState } from '@sunscore/ui';
+import { reverseGeocode } from './services/geocoding';
 import { changeMonth, snapToTenMinutes, setTime } from '@sunscore/domain';
 import {
   useLocation,
@@ -30,6 +35,39 @@ export function App(): React.ReactElement {
   const currentTime = useCurrentTime();
   const { location, error: locationError, loading: locationLoading, retry } = useLocation();
   const { heading, headingState, setMockHeading, requestPermission } = useHeading();
+
+  // Location display state for reverse geocoding
+  const [locationDisplay, setLocationDisplay] = useState<LocationDisplayState>({
+    type: 'unavailable',
+    message: '위치 확인 불가'
+  });
+
+  // Update location display when location changes
+  useEffect(() => {
+    if (!location) {
+      setLocationDisplay({ type: 'unavailable', message: '위치 확인 불가' });
+      return;
+    }
+
+    let cancelled = false;
+
+    reverseGeocode(location.lat, location.lon)
+      .then(components => {
+        if (cancelled) return;
+        const address = formatLocationAddress(components);
+        if (address) {
+          setLocationDisplay({ type: 'success', address });
+        } else {
+          setLocationDisplay({ type: 'coordinates-only', message: '현재 위치 기준' });
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLocationDisplay({ type: 'coordinates-only', message: '현재 위치 기준' });
+      });
+
+    return () => { cancelled = true; };
+  }, [location?.lat, location?.lon]);
 
   // Initialize selected date to current time
   const [selectedDate, setSelectedDate] = useState(() => snapToTenMinutes(new Date()));
@@ -138,11 +176,33 @@ export function App(): React.ReactElement {
         <PeakTimeDisplay peakTime={sunCalcs.peakTime.time} />
       </View>
 
-      {/* Orientation permission button (mobile only) */}
-      {isMobile && headingState === 'permission-needed' && (
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>나침반 방향 허용</Text>
-        </TouchableOpacity>
+      {/* Interpretation or Permission */}
+      {isMobile ? (
+        headingState === 'permission-needed' ? (
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>나침반 방향 허용</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <DirectionInterpretation
+              deviceHeadingDeg={heading}
+              sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
+              sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
+              visible={headingState === 'live' || headingState === 'mock'}
+            />
+            <LocationLabel displayState={locationDisplay} />
+          </>
+        )
+      ) : (
+        <>
+          <DirectionInterpretation
+            deviceHeadingDeg={heading}
+            sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
+            sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
+            visible={headingState === 'live' || headingState === 'mock'}
+          />
+          <LocationLabel displayState={locationDisplay} />
+        </>
       )}
 
       {/* Mock Heading Control (desktop only) */}
