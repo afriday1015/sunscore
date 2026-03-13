@@ -92,7 +92,7 @@ Shared React Native components:
 - Radar compass with sun trajectory and user-facing reference line
 - Direction interpretation sentence component
 - Location label with reverse geocoding support
-- Time slider with quick buttons
+- Time slider with quick buttons and smooth scroll-driven animation
 - Month slider
 - SunScore bar
 
@@ -226,7 +226,7 @@ React 의존성 없이 모든 태양 관련 계산을 포함합니다:
 - 태양 궤적과 사용자 방향 참조선이 포함된 레이더 나침반
 - 방향 해설 문구 컴포넌트
 - 역지오코딩 위치 라벨 컴포넌트
-- 빠른 버튼이 있는 시간 슬라이더
+- 빠른 버튼과 부드러운 스크롤 애니메이션이 있는 시간 슬라이더
 - 월 슬라이더
 - SunScore 바
 

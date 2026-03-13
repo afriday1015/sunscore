@@ -19,7 +19,6 @@ import { colors, typography, spacing, layout } from '../theme';
 interface TimeSliderProps {
   value: Date;
   onChange: (time: Date) => void;
-  currentTime: Date;
   peakTime: Date | null;
 }
 
@@ -31,13 +30,11 @@ const QUICK_HOURS = [10, 12, 14, 16];
 export function TimeSlider({
   value,
   onChange,
-  currentTime,
   peakTime
 }: TimeSliderProps): React.ReactElement {
   const scrollRef = useRef<ScrollView>(null);
 
   const currentSlot = (value.getHours() * 60 + value.getMinutes()) / 10;
-  const currentTimeSlot = (currentTime.getHours() * 60 + currentTime.getMinutes()) / 10;
   const peakTimeSlot = peakTime
     ? (peakTime.getHours() * 60 + peakTime.getMinutes()) / 10
     : null;
@@ -94,22 +91,13 @@ export function TimeSlider({
   };
 
   const handleQuickPress = (hour: number) => {
-    const newTime = new Date(value);
-    newTime.setHours(hour);
-    newTime.setMinutes(0);
-    onChange(newTime);
     scrollToTime(hour, 0);
   };
 
   const handleNowPress = () => {
     const now = new Date();
     const minutes = Math.round(now.getMinutes() / 10) * 10;
-    const newTime = new Date(now);
-    newTime.setMinutes(minutes);
-    newTime.setSeconds(0);
-    newTime.setMilliseconds(0);
-    onChange(newTime);
-    scrollToTime(newTime.getHours(), newTime.getMinutes());
+    scrollToTime(now.getHours(), minutes);
   };
 
   return (
@@ -143,7 +131,6 @@ export function TimeSlider({
           {Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
             const isHour = slot % SLOTS_PER_HOUR === 0;
             const hour = Math.floor(slot / SLOTS_PER_HOUR);
-            const isCurrentTime = slot === Math.floor(currentTimeSlot);
             const isPeakTime = peakTimeSlot !== null && slot === Math.floor(peakTimeSlot);
 
             return (
@@ -163,7 +150,6 @@ export function TimeSlider({
                     {hour.toString().padStart(2, '0')}
                   </Text>
                 )}
-                {isCurrentTime && <View style={styles.currentTimeMarker} />}
                 {isPeakTime && <View style={styles.peakTimeMarker} />}
               </View>
             );
@@ -242,15 +228,6 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
     marginTop: 2
-  },
-  // Current system time marker — distinct orange, scrolls with timeline
-  currentTimeMarker: {
-    position: 'absolute',
-    top: 0,
-    width: 1,
-    height: 32,
-    backgroundColor: '#FF8C42',
-    zIndex: 5
   },
   // Peak time marker — amber diamond, scrolls with timeline
   peakTimeMarker: {

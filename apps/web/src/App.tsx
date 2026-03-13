@@ -25,14 +25,12 @@ import { changeMonth, snapToTenMinutes, setTime } from '@sunscore/domain';
 import {
   useLocation,
   useHeading,
-  useSunCalculations,
-  useCurrentTime
+  useSunCalculations
 } from './hooks';
 
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 export function App(): React.ReactElement {
-  const currentTime = useCurrentTime();
   const { location, error: locationError, loading: locationLoading, retry } = useLocation();
   const { heading, headingState, setMockHeading, requestPermission } = useHeading();
 
@@ -169,7 +167,6 @@ export function App(): React.ReactElement {
         <TimeSlider
           value={selectedDate}
           onChange={handleTimeChange}
-          currentTime={currentTime}
           peakTime={sunCalcs.peakTime.time}
         />
 
