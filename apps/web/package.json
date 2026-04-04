@@ -12,7 +12,11 @@
   "dependencies": {
     "@sunscore/adapters": "*",
     "@sunscore/domain": "*",
-    "@sunscore/ui": "*"
+    "@sunscore/ui": "*",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native-web": "^0.19.10",
+    "react-native-svg": "^14.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
