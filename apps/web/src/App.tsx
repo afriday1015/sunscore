@@ -103,7 +103,7 @@ export function App(): React.ReactElement {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingText}>Loading location...</View>
+          <Text style={styles.loadingText}>Loading location...</Text>
         </View>
       </View>
     );
