@@ -9,8 +9,7 @@
     "paths": {
       "@domain/*": ["../../packages/domain/src/*"],
       "@adapters/*": ["../../packages/adapters/src/*"],
-      "@ui/*": ["../../packages/ui/src/*"],
-      "react-native": ["./node_modules/react-native-web"]
+      "@ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": ["src/**/*"],
