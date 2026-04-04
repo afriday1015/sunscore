@@ -7,7 +7,7 @@ import path from 'path';
 const reactNativeWeb = path.resolve(__dirname, '../../node_modules/react-native-web');
 
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react(), ...(process.env.NODE_ENV !== 'production' ? [basicSsl()] : [])],
   resolve: {
     alias: [
       { find: 'react-native', replacement: reactNativeWeb },
