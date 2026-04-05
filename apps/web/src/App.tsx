@@ -15,13 +15,11 @@ import {
   DirectionInterpretation,
   LocationLabel,
   formatLocationAddress,
-  colors,
-  spacing,
-  layout
+  colors
 } from '@sunscore/ui';
 import type { LocationDisplayState } from '@sunscore/ui';
 import { reverseGeocode } from './services/geocoding';
-import { changeMonth, snapToTenMinutes, setTime } from '@sunscore/domain';
+import { changeMonth, snapToTenMinutes } from '@sunscore/domain';
 import {
   useLocation,
   useHeading,
@@ -138,7 +136,6 @@ export function App(): React.ReactElement {
         month={selectedMonth}
         selectedTime={selectedDate}
         headingState={headingState}
-        locationAccuracy={location.accuracy}
       />
 
       {/* Main Content */}

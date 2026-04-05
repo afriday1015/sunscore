@@ -167,7 +167,6 @@ export function App(): React.ReactElement {
         month={selectedMonth}
         selectedTime={selectedDate}
         headingState={headingState}
-        locationAccuracy={location.accuracy}
       />
 
       {/* Main Content */}
