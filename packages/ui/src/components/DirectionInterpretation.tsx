@@ -32,7 +32,7 @@ export function DirectionInterpretation({
 
   const sentence = sunAltitudeDeg > 0
     ? `${absoluteDirection} 방향을 보고 있으며, 해는 ${relativePosition}에 있습니다.`
-    : `${absoluteDirection} 방향을 보고 있으며, 현재 해는 보이지 않습니다.`;
+    : `${absoluteDirection} 방향을 보고 있으며, 지금은 저녁입니다.`;
 
   return (
     <View style={styles.container}>
