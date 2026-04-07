@@ -2,7 +2,7 @@
  * Time slider component
  * Horizontal scrollable timeline with center indicator for time selection
  */
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   Dimensions,
   NativeSyntheticEvent,
-  NativeScrollEvent
+  NativeScrollEvent,
+  LayoutChangeEvent
 } from 'react-native';
 import { formatTime } from '@sunscore/domain';
 import { colors, typography, spacing, layout } from '../theme';
@@ -33,18 +34,38 @@ export function TimeSlider({
   peakTime
 }: TimeSliderProps): React.ReactElement {
   const scrollRef = useRef<ScrollView>(null);
+  // Actual viewport width of the timeline area (excluding the Now button).
+  // Captured via onLayout so paddingHorizontal can be sized correctly.
+  const [viewportWidth, setViewportWidth] = useState(Dimensions.get('window').width);
+  const initialScrolledRef = useRef(false);
 
   const currentSlot = (value.getHours() * 60 + value.getMinutes()) / 10;
   const peakTimeSlot = peakTime
     ? (peakTime.getHours() * 60 + peakTime.getMinutes()) / 10
     : null;
 
+  // paddingHorizontal must offset the tick by SLOT_WIDTH/2 because each slot
+  // View has alignItems:'center' (so the tick sits at the slot's middle).
+  // With paddingLeft = viewportWidth/2 - SLOT_WIDTH/2, slot n's tick lands at
+  // viewport center exactly when scrollOffsetX = n * SLOT_WIDTH.
+  const sidePadding = Math.max(0, viewportWidth / 2 - SLOT_WIDTH / 2);
+
+  const handleViewportLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && Math.abs(w - viewportWidth) >= 1) {
+      setViewportWidth(w);
+    }
+  };
+
   useEffect(() => {
-    // Scroll so current value is under the center indicator
-    // With paddingHorizontal = screenWidth/2, slot n is centered at offsetX = n * SLOT_WIDTH
+    // Wait until we know the real viewport width before doing the initial scroll,
+    // otherwise paddingHorizontal would be wrong and the slot wouldn't land at center.
+    if (initialScrolledRef.current) return;
+    if (viewportWidth <= 0) return;
     const offset = currentSlot * SLOT_WIDTH;
     scrollRef.current?.scrollTo({ x: Math.max(0, offset), animated: false });
-  }, []);
+    initialScrolledRef.current = true;
+  }, [viewportWidth, currentSlot]);
 
   /**
    * Scroll the timeline so the given hour:minute appears under the center indicator.
@@ -117,55 +138,61 @@ export function TimeSlider({
 
       {/* Timeline */}
       <View style={styles.timelineContainer}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.timelineContent}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          snapToInterval={SLOT_WIDTH}
-          decelerationRate="fast"
-        >
-          {Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
-            const isHour = slot % SLOTS_PER_HOUR === 0;
-            const hour = Math.floor(slot / SLOTS_PER_HOUR);
-            const isPeakTime = peakTimeSlot !== null && slot === Math.floor(peakTimeSlot);
+        {/* Wrap ScrollView + center indicator so the indicator's left:50%
+            anchors to the actual ScrollView viewport, not to the row that
+            also contains the Now button. */}
+        <View style={styles.timelineWrap} onLayout={handleViewportLayout}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            style={styles.scrollView}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: sidePadding }}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={handleMomentumScrollEnd}
+            snapToInterval={SLOT_WIDTH}
+            decelerationRate="fast"
+          >
+            {Array.from({ length: TOTAL_SLOTS }, (_, slot) => {
+              const isHour = slot % SLOTS_PER_HOUR === 0;
+              const hour = Math.floor(slot / SLOTS_PER_HOUR);
+              const isPeakTime = peakTimeSlot !== null && slot === Math.floor(peakTimeSlot);
 
-            return (
-              // No tap-to-select: selection is driven by scroll position
-              <View
-                key={slot}
-                style={styles.slot}
-              >
+              return (
+                // No tap-to-select: selection is driven by scroll position
                 <View
-                  style={[
-                    styles.tick,
-                    isHour ? styles.tickHour : styles.tickMinor
-                  ]}
-                />
-                {isHour && (
-                  <Text style={styles.hourLabel}>
-                    {hour.toString().padStart(2, '0')}
-                  </Text>
-                )}
-                {isPeakTime && <View style={styles.peakTimeMarker} />}
-              </View>
-            );
-          })}
-        </ScrollView>
+                  key={slot}
+                  style={styles.slot}
+                >
+                  <View
+                    style={[
+                      styles.tick,
+                      isHour ? styles.tickHour : styles.tickMinor
+                    ]}
+                  />
+                  {isHour && (
+                    <Text style={styles.hourLabel}>
+                      {hour.toString().padStart(2, '0')}
+                    </Text>
+                  )}
+                  {isPeakTime && <View style={styles.peakTimeMarker} />}
+                </View>
+              );
+            })}
+          </ScrollView>
 
-        {/* Fixed center indicator — the selected time is always the slot under this */}
-        <View
-          style={styles.centerIndicatorContainer}
-          accessible={true}
-          accessibilityLabel="Selected time indicator"
-          accessibilityHint="Scroll the timeline to change the selected time"
-          pointerEvents="none"
-        >
-          <View style={styles.centerTriangle} />
-          <View style={styles.centerLine} />
+          {/* Fixed center indicator — the selected time is always the slot under this */}
+          <View
+            style={styles.centerIndicatorContainer}
+            accessible={true}
+            accessibilityLabel="Selected time indicator"
+            accessibilityHint="Scroll the timeline to change the selected time"
+            pointerEvents="none"
+          >
+            <View style={styles.centerTriangle} />
+            <View style={styles.centerLine} />
+          </View>
         </View>
 
         {/* Now button */}
@@ -205,8 +232,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
-  timelineContent: {
-    paddingHorizontal: Dimensions.get('window').width / 2
+  // Wrapper that holds the ScrollView and the absolute center indicator.
+  // Its width is the actual timeline viewport width (parent row width minus
+  // the Now button), so the centered indicator and the ScrollView's center
+  // are aligned to the same axis.
+  timelineWrap: {
+    flex: 1,
+    alignSelf: 'stretch',
+    position: 'relative'
+  },
+  scrollView: {
+    flex: 1
   },
   slot: {
     width: SLOT_WIDTH,
@@ -240,13 +276,19 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
     zIndex: 5
   },
-  // Fixed center indicator — shows which time is selected, does not scroll
+  // Fixed center indicator — shows which time is selected, does not scroll.
+  // Explicit width (= line width) is critical: without it the container would
+  // size to its largest child (the triangle, 10px), shifting the actual line
+  // off-center by ~4px. With width:2 + marginLeft:-1, the container is exactly
+  // centered at left:50%, and alignItems:'center' centers both the line (2px,
+  // exact fit) and the triangle (10px, overflows visually but stays centered).
   centerIndicatorContainer: {
     position: 'absolute',
     left: '50%' as unknown as number,
-    marginLeft: -1, // half of line width to truly center
+    marginLeft: -1,
+    width: 2,
     top: 0,
-    height: '100%' as unknown as number,
+    bottom: 0,
     zIndex: 10,
     alignItems: 'center'
   },
