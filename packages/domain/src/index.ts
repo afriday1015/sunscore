@@ -30,6 +30,12 @@ export {
   type Location
 } from './sunPosition';
 
+// Magnetic declination
+export {
+  getMagneticDeclination,
+  magneticToTrueHeading
+} from './declination';
+
 // SunScore calculation
 export {
   calculateDirectionFactor,
