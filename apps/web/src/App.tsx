@@ -19,7 +19,7 @@ import {
 } from '@sunscore/ui';
 import type { LocationDisplayState } from '@sunscore/ui';
 import { reverseGeocode } from './services/geocoding';
-import { changeMonth, snapToTenMinutes } from '@sunscore/domain';
+import { changeMonth, snapToTenMinutes, magneticToTrueHeading } from '@sunscore/domain';
 import {
   useLocation,
   useHeading,
@@ -77,7 +77,17 @@ export function App(): React.ReactElement {
     return { latitude: location.lat, longitude: location.lon };
   }, [location?.lat, location?.lon]);
 
-  const sunCalcs = useSunCalculations(locationData, selectedDate, heading);
+  // Convert raw magnetic heading from device sensor to true-north heading
+  // so it can be compared against suncalc's true-north sun bearing.
+  // Mock heading is user-entered as true heading, so it bypasses correction.
+  const trueHeading = useMemo(() => {
+    if (headingState === 'live' && locationData) {
+      return magneticToTrueHeading(heading, locationData);
+    }
+    return heading;
+  }, [heading, headingState, locationData?.latitude, locationData?.longitude]);
+
+  const sunCalcs = useSunCalculations(locationData, selectedDate, trueHeading);
 
   // Handle month change
   const handleMonthChange = useCallback((month: number) => {
@@ -151,7 +161,7 @@ export function App(): React.ReactElement {
           <Radar
             sunBearing={sunCalcs.sunPosition.bearingDeg}
             sunAltitude={sunCalcs.sunPosition.altitudeDeg}
-            deviceHeading={heading}
+            deviceHeading={trueHeading}
             trajectory={sunCalcs.trajectory}
           />
 
@@ -179,7 +189,7 @@ export function App(): React.ReactElement {
         ) : (
           <>
             <DirectionInterpretation
-              deviceHeadingDeg={heading}
+              deviceHeadingDeg={trueHeading}
               sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
               sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
               visible={headingState === 'live' || headingState === 'mock'}
