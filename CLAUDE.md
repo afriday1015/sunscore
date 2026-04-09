@@ -71,6 +71,43 @@ sunScore = clamp(altitudeFactor × directionFactor, 0, 1)
 - 한 커밋 = 한 가지 변경
 - 빌드가 깨지는 상태로 커밋 금지
 
+## 작업 위임 규칙 (Solo / Team 모드)
+
+SunScore는 두 가지 작업 모드를 지원한다.
+
+### 기본: Solo 모드
+- 사용자의 일반 요청("~해주세요", "~수정해주세요")은 메인 세션이 직접 처리한다.
+- 단순 변경, 1~2 파일 수정, 빠른 질의응답에 적합.
+
+### 명시적 호출: `/run_team` 모드
+- 사용자가 `/run_team`을 명시하면 풀 팀 워크플로우를 가동한다.
+- 오케스트레이션은 `.claude/skills/run_team/SKILL.md`에 정의되어 있으며, 메인 세션은 그 단계를 EXACTLY 따른다.
+- 모델 티어 인자: `/run_team A` (전부 opus), `/run_team B` (혼합), `/run_team C` (전부 sonnet). 인자가 없으면 `AskUserQuestion`으로 묻는다. 기본값은 A.
+
+### 팀 구성 (`.claude/agents/`)
+- `sunscore-architect` — 계획 수립 및 실패 복구 계획 (코드 변경 X)
+- `domain-engineer` — `packages/domain` 전담
+- `adapters-engineer` — `packages/adapters` 전담
+- `ui-engineer` — `packages/ui` 공유 컴포넌트 전담
+- `web-engineer` — `apps/web` 전담
+- `native-engineer` — `apps/native` 전담
+- `test-engineer` — 변경 코드에 대한 테스트 작성·실행
+- `sunscore-reviewer` — CLAUDE.md 원칙·레이어 경계 검증 (코드 변경 X)
+
+### 실행 순서 (의존성 기반)
+1. `sunscore-architect` 계획 수립
+2. `domain-engineer` → `adapters-engineer` → `ui-engineer` 순차
+3. `web-engineer`와 `native-engineer`는 둘 다 필요하면 **병렬 호출** (한 메시지에 Agent 호출 2개)
+4. `test-engineer`
+5. `sunscore-reviewer`
+
+### 실패 루프 (최대 3회)
+- test 또는 review FAIL → `sunscore-architect`가 실패 원인 분석 및 수정 계획 수립 → 해당 engineer 재호출 → test 재실행 → review 재검증
+- 3회 초과 시 사용자에게 escalate (시도 이력, 마지막 실패 원인, 권장 액션 포함)
+
+### 자동 커밋 금지
+- `/run_team` 플로우 완료 후에도 메인 세션은 사용자 승인 없이 커밋하지 않는다.
+
 ## 구현 제외 사항
 
 다음은 구현하지 않는다:
