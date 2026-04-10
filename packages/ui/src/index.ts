@@ -19,6 +19,9 @@ export { DirectionInterpretation } from './components/DirectionInterpretation';
 export { LocationLabel } from './components/LocationLabel';
 export type { LocationDisplayState } from './components/LocationLabel';
 
+// Onboarding
+export * from './onboarding';
+
 // Utils
 export { formatLocationAddress } from './utils/formatLocationAddress';
 export type { RawAddressComponents } from './utils/formatLocationAddress';

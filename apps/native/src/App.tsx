@@ -1,7 +1,7 @@
 /**
  * Main App component for SunScore native
  */
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, StyleSheet, SafeAreaView, Text } from 'react-native';
 import {
   TopBar,
@@ -11,6 +11,9 @@ import {
   TimeSlider,
   PeakTimeDisplay,
   ErrorScreen,
+  OnboardingOverlay,
+  useOnboarding,
+  ONBOARDING_STEPS,
   colors,
   spacing,
   layout
@@ -19,6 +22,7 @@ import { changeMonth, snapToTenMinutes } from '@sunscore/domain';
 import {
   NativeLocationAdapter,
   NativeHeadingAdapter,
+  NativeStorageAdapter,
   type LocationResult,
   type HeadingState
 } from '@sunscore/adapters';
@@ -26,6 +30,7 @@ import { useSunCalculations } from './hooks/useSunCalculations';
 
 const locationAdapter = new NativeLocationAdapter();
 const headingAdapter = new NativeHeadingAdapter();
+const storageAdapter = new NativeStorageAdapter();
 
 export function App(): React.ReactElement {
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -37,6 +42,26 @@ export function App(): React.ReactElement {
   const [selectedDate, setSelectedDate] = useState(() => snapToTenMinutes(new Date()));
 
   const selectedMonth = selectedDate.getMonth() + 1;
+
+  // Onboarding
+  const { showOnboarding, completeOnboarding, skipOnboarding } = useOnboarding(storageAdapter);
+  const monthSelectorRef = useRef<View>(null);
+  const currentMonthLabelRef = useRef<View>(null);
+  const radarViewRef = useRef<View>(null);
+  const sunscoreBarRef = useRef<View>(null);
+  const quickTimeButtonsRef = useRef<View>(null);
+  const timeSliderRef = useRef<View>(null);
+  const compassRef = useRef<View>(null);
+
+  const targetRefs = useMemo(() => ({
+    'month-selector': monthSelectorRef,
+    'current-month-label': currentMonthLabelRef,
+    'radar-view': radarViewRef,
+    'sunscore-bar': sunscoreBarRef,
+    'quick-time-buttons': quickTimeButtonsRef,
+    'time-slider': timeSliderRef,
+    'compass-permission-or-bottom-guide': compassRef,
+  }), []);
 
   // Update current time every minute
   useEffect(() => {
@@ -167,26 +192,33 @@ export function App(): React.ReactElement {
         month={selectedMonth}
         selectedTime={selectedDate}
         headingState={headingState}
+        monthLabelRef={currentMonthLabelRef}
       />
 
       {/* Main Content */}
       <View style={styles.mainContent}>
         {/* Month Slider */}
-        <MonthSlider
-          value={selectedMonth}
-          onChange={handleMonthChange}
-        />
+        <View ref={monthSelectorRef} collapsable={false}>
+          <MonthSlider
+            value={selectedMonth}
+            onChange={handleMonthChange}
+          />
+        </View>
 
         {/* Radar and Score */}
         <View style={styles.centerContent}>
-          <Radar
-            sunBearing={sunCalcs.sunPosition.bearingDeg}
-            sunAltitude={sunCalcs.sunPosition.altitudeDeg}
-            deviceHeading={heading}
-            trajectory={sunCalcs.trajectory}
-          />
+          <View ref={radarViewRef} collapsable={false}>
+            <Radar
+              sunBearing={sunCalcs.sunPosition.bearingDeg}
+              sunAltitude={sunCalcs.sunPosition.altitudeDeg}
+              deviceHeading={heading}
+              trajectory={sunCalcs.trajectory}
+            />
+          </View>
 
-          <SunScoreBar score={sunCalcs.sunScore} />
+          <View ref={sunscoreBarRef} collapsable={false}>
+            <SunScoreBar score={sunCalcs.sunScore} />
+          </View>
         </View>
       </View>
 
@@ -197,10 +229,22 @@ export function App(): React.ReactElement {
           onChange={handleTimeChange}
           currentTime={currentTime}
           peakTime={sunCalcs.peakTime.time}
+          quickButtonsRef={quickTimeButtonsRef}
+          timelineRef={timeSliderRef}
         />
 
-        <PeakTimeDisplay peakTime={sunCalcs.peakTime.time} />
+        <View ref={compassRef} collapsable={false}>
+          <PeakTimeDisplay peakTime={sunCalcs.peakTime.time} />
+        </View>
       </View>
+
+      <OnboardingOverlay
+        steps={ONBOARDING_STEPS}
+        targetRefs={targetRefs}
+        visible={showOnboarding}
+        onComplete={completeOnboarding}
+        onSkip={skipOnboarding}
+      />
     </SafeAreaView>
   );
 }

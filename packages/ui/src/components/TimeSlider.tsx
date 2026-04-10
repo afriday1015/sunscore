@@ -21,6 +21,8 @@ interface TimeSliderProps {
   value: Date;
   onChange: (time: Date) => void;
   peakTime: Date | null;
+  quickButtonsRef?: React.RefObject<View>;
+  timelineRef?: React.RefObject<View>;
 }
 
 const SLOT_WIDTH = 20;
@@ -31,7 +33,9 @@ const QUICK_HOURS = [10, 12, 14, 16];
 export function TimeSlider({
   value,
   onChange,
-  peakTime
+  peakTime,
+  quickButtonsRef,
+  timelineRef,
 }: TimeSliderProps): React.ReactElement {
   const scrollRef = useRef<ScrollView>(null);
   // Actual viewport width of the timeline area (excluding the Now button).
@@ -124,7 +128,7 @@ export function TimeSlider({
   return (
     <View style={styles.container}>
       {/* Quick buttons */}
-      <View style={styles.quickButtons}>
+      <View ref={quickButtonsRef} style={styles.quickButtons}>
         {QUICK_HOURS.map((hour) => (
           <TouchableOpacity
             key={hour}
@@ -137,7 +141,7 @@ export function TimeSlider({
       </View>
 
       {/* Timeline */}
-      <View style={styles.timelineContainer}>
+      <View ref={timelineRef} style={styles.timelineContainer}>
         {/* Wrap ScrollView + center indicator so the indicator's left:50%
             anchors to the actual ScrollView viewport, not to the row that
             also contains the Now button. */}

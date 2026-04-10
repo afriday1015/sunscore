@@ -1,7 +1,7 @@
 /**
  * Main App component for SunScore web
  */
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   TopBar,
@@ -15,9 +15,13 @@ import {
   DirectionInterpretation,
   LocationLabel,
   formatLocationAddress,
-  colors
+  colors,
+  OnboardingOverlay,
+  useOnboarding,
+  ONBOARDING_STEPS
 } from '@sunscore/ui';
 import type { LocationDisplayState } from '@sunscore/ui';
+import { WebStorageAdapter } from '@sunscore/adapters';
 import { reverseGeocode } from './services/geocoding';
 import { changeMonth, snapToTenMinutes, magneticToTrueHeading } from '@sunscore/domain';
 import {
@@ -27,10 +31,32 @@ import {
 } from './hooks';
 
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const storageAdapter = new WebStorageAdapter();
 
 export function App(): React.ReactElement {
   const { location, error: locationError, loading: locationLoading, retry } = useLocation();
   const { heading, headingState, setMockHeading, requestPermission } = useHeading();
+
+  // Onboarding
+  const { showOnboarding, completeOnboarding, skipOnboarding } = useOnboarding(storageAdapter);
+
+  const monthSelectorRef = useRef<View>(null);
+  const currentMonthLabelRef = useRef<View>(null);
+  const radarViewRef = useRef<View>(null);
+  const sunscoreBarRef = useRef<View>(null);
+  const quickTimeButtonsRef = useRef<View>(null);
+  const timeSliderRef = useRef<View>(null);
+  const compassRef = useRef<View>(null);
+
+  const targetRefs = useMemo(() => ({
+    'month-selector': monthSelectorRef,
+    'current-month-label': currentMonthLabelRef,
+    'radar-view': radarViewRef,
+    'sunscore-bar': sunscoreBarRef,
+    'quick-time-buttons': quickTimeButtonsRef,
+    'time-slider': timeSliderRef,
+    'compass-permission-or-bottom-guide': compassRef,
+  }), []);
 
   // Location display state for reverse geocoding
   const [locationDisplay, setLocationDisplay] = useState<LocationDisplayState>({
@@ -146,26 +172,33 @@ export function App(): React.ReactElement {
         month={selectedMonth}
         selectedTime={selectedDate}
         headingState={headingState}
+        monthLabelRef={currentMonthLabelRef}
       />
 
       {/* Main Content */}
       <View style={styles.mainContent}>
         {/* Month Slider */}
-        <MonthSlider
-          value={selectedMonth}
-          onChange={handleMonthChange}
-        />
+        <View ref={monthSelectorRef} collapsable={false}>
+          <MonthSlider
+            value={selectedMonth}
+            onChange={handleMonthChange}
+          />
+        </View>
 
         {/* Radar and Score */}
         <View style={styles.centerContent}>
-          <Radar
-            sunBearing={sunCalcs.sunPosition.bearingDeg}
-            sunAltitude={sunCalcs.sunPosition.altitudeDeg}
-            deviceHeading={trueHeading}
-            trajectory={sunCalcs.trajectory}
-          />
+          <View ref={radarViewRef} collapsable={false}>
+            <Radar
+              sunBearing={sunCalcs.sunPosition.bearingDeg}
+              sunAltitude={sunCalcs.sunPosition.altitudeDeg}
+              deviceHeading={trueHeading}
+              trajectory={sunCalcs.trajectory}
+            />
+          </View>
 
-          <SunScoreBar score={sunCalcs.sunScore} />
+          <View ref={sunscoreBarRef} collapsable={false}>
+            <SunScoreBar score={sunCalcs.sunScore} />
+          </View>
         </View>
       </View>
 
@@ -175,39 +208,43 @@ export function App(): React.ReactElement {
           value={selectedDate}
           onChange={handleTimeChange}
           peakTime={sunCalcs.peakTime.time}
+          quickButtonsRef={quickTimeButtonsRef}
+          timelineRef={timeSliderRef}
         />
 
         <PeakTimeDisplay peakTime={sunCalcs.peakTime.time} />
       </View>
 
       {/* Interpretation or Permission */}
-      {isMobile ? (
-        headingState === 'permission-needed' ? (
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>나침반 방향 허용</Text>
-          </TouchableOpacity>
+      <View ref={compassRef} collapsable={false}>
+        {isMobile ? (
+          headingState === 'permission-needed' ? (
+            <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+              <Text style={styles.permissionButtonText}>나침반 방향 허용</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <DirectionInterpretation
+                deviceHeadingDeg={trueHeading}
+                sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
+                sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
+                visible={headingState === 'live' || headingState === 'mock'}
+              />
+              <LocationLabel displayState={locationDisplay} />
+            </>
+          )
         ) : (
           <>
             <DirectionInterpretation
-              deviceHeadingDeg={trueHeading}
+              deviceHeadingDeg={heading}
               sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
               sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
               visible={headingState === 'live' || headingState === 'mock'}
             />
             <LocationLabel displayState={locationDisplay} />
           </>
-        )
-      ) : (
-        <>
-          <DirectionInterpretation
-            deviceHeadingDeg={heading}
-            sunBearingDeg={sunCalcs.sunPosition.bearingDeg}
-            sunAltitudeDeg={sunCalcs.sunPosition.altitudeDeg}
-            visible={headingState === 'live' || headingState === 'mock'}
-          />
-          <LocationLabel displayState={locationDisplay} />
-        </>
-      )}
+        )}
+      </View>
 
       {/* Mock Heading Control (desktop only) */}
       {!isMobile && (
@@ -217,6 +254,15 @@ export function App(): React.ReactElement {
           visible={headingState === 'mock'}
         />
       )}
+
+      {/* Onboarding Overlay */}
+      <OnboardingOverlay
+        steps={ONBOARDING_STEPS}
+        targetRefs={targetRefs}
+        visible={showOnboarding}
+        onComplete={completeOnboarding}
+        onSkip={skipOnboarding}
+      />
     </View>
   );
 }

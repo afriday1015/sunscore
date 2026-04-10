@@ -18,12 +18,14 @@ interface TopBarProps {
   month: number; // 1-12
   selectedTime: Date;
   headingState: HeadingState;
+  monthLabelRef?: React.RefObject<View>;
 }
 
 export function TopBar({
   month,
   selectedTime,
-  headingState
+  headingState,
+  monthLabelRef,
 }: TopBarProps): React.ReactElement {
   const monthLabel = getShortMonthName(month);
   const timeString = formatTime(selectedTime);
@@ -35,9 +37,11 @@ export function TopBar({
     <View style={styles.container}>
       {/* Left: month label — sits above the MonthSlider column as its current value */}
       <View style={styles.monthColumn} pointerEvents="none">
-        <Text style={styles.monthText} numberOfLines={1}>
-          {monthLabel}
-        </Text>
+        <View ref={monthLabelRef} collapsable={false}>
+          <Text style={styles.monthText} numberOfLines={1}>
+            {monthLabel}
+          </Text>
+        </View>
       </View>
 
       {/* Center overlay: absolutely centered time, independent of left/right */}
